@@ -15,7 +15,7 @@ import complianceRoutes from "./modules/compliance/compliance.routes";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import path from "path";
-import uploadRoutes from "./modules/utils/upload.routes";
+import uploadRoutes from "./modules/evidences/upload.routes";
 import { v2 as cloudinary } from "cloudinary";
 import evidenceRoutes from "./modules/evidences/evidence.routes";
 import pipelineRoutes from "./modules/pipelines/pipeline.routes";
@@ -65,7 +65,8 @@ app.get("/", () => {
 
 const start = async () => {
   try {
-    await app.listen({ port: 4000, host: "0.0.0.0" });
+    const port = Number(process.env.PORT) || 4000;
+    await app.listen({ port, host: "0.0.0.0" });
     console.log("🚀 Server running on http://localhost:4000");
   } catch (err) {
     app.log.error(err);
