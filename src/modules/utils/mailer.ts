@@ -1,12 +1,16 @@
 import nodemailer from "nodemailer";
+import SMTPTransport from "nodemailer/lib/smtp-transport";
 
 export const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  family: 4,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
-});
+} as SMTPTransport.Options);
 
 export const sendEmail = async (
   to: string,
@@ -14,7 +18,7 @@ export const sendEmail = async (
   inviteLink: string
 ) => {
   await transporter.sendMail({
-    from: `"VizGRC" <${process.env.SMTP_USER}>`,
+    from: `"VizGRC" <${process.env.EMAIL_USER}>`,
     to,
     subject: "You're Invited to VizGRC",
     html: `
