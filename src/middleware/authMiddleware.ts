@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import crypto from "crypto";
-import { sendEmail } from "../modules/utils/mailer";
+// import crypto from "crypto";
+// import { sendEmail } from "../modules/utils/mailer";
 
 declare module "fastify" {
   interface FastifyRequest {
