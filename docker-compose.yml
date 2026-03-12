@@ -9,7 +9,10 @@ services:
       - .env
     depends_on:
       - db
-    command: ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+    command: ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/server.js"]
+    volumes:
+      - .:/app
+      - /app/node_modules
 
   db:
     image: postgres:15
@@ -19,8 +22,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: admin123
       POSTGRES_DB: vizgrc
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 

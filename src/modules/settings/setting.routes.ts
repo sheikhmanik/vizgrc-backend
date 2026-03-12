@@ -53,41 +53,16 @@ export default function Settings(fastify: FastifyInstance) {
     }
   });
 
-  fastify.post("/accept-invite", async (req, reply) => {
-    const { token, password } = req.body as { token: string, password: string };
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await fastify.prisma.user.findFirst({
-      where: {
-        inviteToken: token,
-        inviteExpires: {
-          gt: new Date()
-        },
-        password: null
-      }
-    });
-
-    if (!user) {
-      return reply.status(400).send({ error: "Invalid or expired token" });
-    }
-
-    await fastify.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        status: "Active",
-        inviteToken: null,
-        inviteExpires: null,
-        password: hashedPassword,
-      }
-    });
-
-    return reply.send({ message: "Account activated successfully" });
-  });
-
   fastify.delete("/delete-user/:id", async (req, reply) => {
     const { id } = req.params as any;
+    const currentUser = req.user as any;
 
     try {
+
+      if (currentUser.id === id) {
+        return reply.status(400).send({ error: "You cannot delete your own account." });
+      }
+
       await fastify.prisma.user.delete({ where: { id } });
       reply.send({ message: "User deleted successfully" });
     } catch (error) {
@@ -234,5 +209,40 @@ export default function Settings(fastify: FastifyInstance) {
     });
   
     return reply.send(formatted);
+  });
+
+  fastify.post("/password-management", async (req, reply) => {
+    const { currentPassword, newPassword } = req.body as {
+      currentPassword: string;
+      newPassword: string;
+    };
+
+    const user = await fastify.prisma.user.findUnique({
+      where: { id: req.userId }
+    });
+
+    if (!user || !user.password) {
+      return reply.status(404).send({ error: "User not found" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+
+    if (!isMatch) {
+      return reply.status(400).send({ error: "Current password is incorrect" });
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 1);
+
+    await fastify.prisma.user.update({
+      where: { id: req.userId },
+      data: {
+        password: hashedNewPassword,
+        passwordExpiresAt: expiresAt,
+      }
+    });
+
+    return reply.send({ message: "Password updated successfully" });
   });
 }

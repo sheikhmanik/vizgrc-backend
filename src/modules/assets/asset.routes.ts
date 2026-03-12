@@ -37,4 +37,18 @@ export default function assetRoutes(fastify: FastifyInstance) {
       reply.status(500).send({ error: "Failed to fetch assets" });
     }
   });
+
+  fastify.delete("/delete-asset/:id", async (req, reply) => {
+    const { id } = req.params as any;
+    try {
+      await fastify.prisma.asset.delete({
+        where: { id }
+      });
+      console.log("Asset deleted successfully.");
+      reply.send({ message: "Asset deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting asset:", error);
+      reply.status(500).send({ error: "Failed to delete asset" });
+    }
+  });
 }

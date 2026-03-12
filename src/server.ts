@@ -21,6 +21,8 @@ import evidenceRoutes from "./modules/evidences/evidence.routes";
 import pipelineRoutes from "./modules/pipelines/pipeline.routes";
 import settingRoutes from "./modules/settings/setting.routes";
 import auditRoutes from "./modules/audit-logs/audit.routes";
+import profileRoutes from "./modules/profile/profile.routes";
+import invitationRoutes from "./modules/invitations/invitation.routes";
 
 const app = Fastify({ logger: true });
 
@@ -52,6 +54,8 @@ app.register(evidenceRoutes, { prefix: "/evidence" });
 app.register(pipelineRoutes, { prefix: "/pipeline" });
 app.register(settingRoutes, { prefix: "/settings" });
 app.register(auditRoutes, { prefix: "/audit" });
+app.register(profileRoutes, { prefix: "/profile" });
+app.register(invitationRoutes, { prefix: "/invitations" });
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,

@@ -1,27 +1,107 @@
 import { FastifyInstance } from "fastify";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { sendEmail } from "../utils/mailer";
 
 export default function authentication(fastify: FastifyInstance) {
   fastify.post("/login", async (req, reply) => {
     const { email, password } = req.body as any;
     try {
 
-      let users = await fastify.prisma.user.findMany();
-
-      let user = await fastify.prisma.user.findUnique({
-        where: { email },
+      const user = await fastify.prisma.user.findUnique({
+        where: { email }
       });
 
-      if (user) {
-        if (user.password === null) return reply.status(400).send({ error: "Invalid credentials." });
-        const isPasswordValid = bcrypt.compareSync(password, user.password);
-        if (!isPasswordValid) return reply.status(401).send({ error: "Invalid password" });
-      } else {
+      if (!user) {
         return reply.status(404).send({ error: "User not found" });
       }
 
-      const token = fastify.jwt.sign({ id: user?.id }, { expiresIn: "24h" });
-      reply.send({ token });
+      const now = new Date();
+
+      if (user.lockUntil && user.lockUntil > now) {
+        return reply.status(403).send({
+          error: `Account locked. Try again after sometime.`
+        });
+      }
+
+      if (!user.password) {
+        return reply.status(400).send({ error: "Invalid credentials." });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (isPasswordValid) {
+        if (user.passwordExpiresAt && new Date(user.passwordExpiresAt) < new Date()){
+
+          // If reset already generated and not expired, don't send again
+          if (user.inviteToken && user.inviteExpires && user.inviteExpires > new Date()) {
+            return reply.status(401).send({
+              message: "Password expired. Please check your mail and update password.",
+              code: "PASSWORD_EXPIRED"
+            });
+          }
+
+          const inviteToken = crypto.randomBytes(32).toString("hex");
+
+          const updatedUser = await fastify.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              inviteToken,
+              inviteExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+            }
+          });
+          
+          const inviteLink = `${process.env.APP_URL}/accept-invite?token=${inviteToken}`;
+          await sendEmail(updatedUser.email, updatedUser.name, inviteLink);
+
+          return reply.status(401).send({
+            message: "Password expired. Please check your mail and update password.",
+            code: "PASSWORD_EXPIRED"
+          });
+        } else {
+          await fastify.prisma.user.update({
+            where: { id: user.id },
+            data: {
+              failedAttempts: 0,
+              firstFailedAt: null,
+              lockUntil: null
+            }
+          });
+  
+          const token = fastify.jwt.sign({ id: user?.id }, { expiresIn: "24h" });
+          reply.send({ token });
+          return;
+        }
+
+      } else {
+        let failedAttempts = user.failedAttempts + 1;
+        let firstFailedAt = user.firstFailedAt ?? now;
+        let lockUntil = null;
+
+        const fiveMinutes = 5 * 60 * 1000;
+
+        // reset window if more than 5 minutes passed
+        if (user.firstFailedAt && (now.getTime() - user.firstFailedAt.getTime()) > fiveMinutes) {
+          failedAttempts = 1;
+          firstFailedAt = now;
+        }
+
+        // lock if 5 attempts
+        if (failedAttempts >= 5) {
+          lockUntil = new Date(now.getTime() + 20 * 60 * 1000);
+        }
+
+        await fastify.prisma.user.update({
+          where: { id: user.id },
+          data: {
+            failedAttempts,
+            firstFailedAt,
+            lockUntil
+          }
+        });
+
+        return reply.status(401).send({ error: "Invalid password" });
+      }
     } catch (error) {
       console.error("Error during login:", error);
       reply.status(500).send({ error: "Login failed" });

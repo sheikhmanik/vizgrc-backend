@@ -17,7 +17,8 @@ export default function Upload(fastify: FastifyInstance) {
       const uploadResult = await new Promise<any>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            resource_type: "auto", // important (pdf, images, etc)
+            resource_type: "auto",
+            type: "upload",
             folder: "vizgrc/evidence",
           },
           (error, result) => {
